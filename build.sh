@@ -32,7 +32,7 @@ echo "mysql_source/mysql present"
 
 else
 
-git clone -v --branch 'mysql-8.0.22' --depth 1 https://github.com/mysql/mysql-server.git mysql_source/mysql
+git clone -v --branch 'mysql-8.0.19' --depth 1 https://github.com/mysql/mysql-server.git mysql_source/mysql
 
 fi
 
