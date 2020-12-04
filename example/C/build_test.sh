@@ -5,7 +5,7 @@ if [ -f ./rpl_test_2 ]; then
     rm ./rpl_test_2
 fi
 
-if [ -f ../../mysql_rpl_listener.so ]; then
+if [ -f ../../libmysql_rpl_listener.so ]; then
 
 echo "shared library present"
 
