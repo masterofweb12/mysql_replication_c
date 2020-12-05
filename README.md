@@ -16,7 +16,6 @@ For the library to work correctly, the following server variables must have the 
 
 **gtid_mode**=***OFF***
 
-If your server version above 8.0.19 **binlog_transaction_compression**=***OFF***
 
 # build
 
