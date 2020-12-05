@@ -1410,7 +1410,9 @@ void mysql_rpl_listener_2::process_event (  void *ev_x, _repl_log_x_error *error
                 }
                 memset( query_str, 0, qle->q_len + 8 );
                 memcpy( query_str, qle->query, qle->q_len );
-                if ( strcmp( "BEGIN", query_str ) == 0 ) {
+                if ( 
+                    ( strcmp( "BEGIN", query_str ) == 0 ) || 
+                    ( strcmp( "XA START", query_str ) == 0  ) ) {
                 
                     __sync_bool_compare_and_swap( &(this->state), 
                                         (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS_1),
@@ -1424,7 +1426,9 @@ void mysql_rpl_listener_2::process_event (  void *ev_x, _repl_log_x_error *error
                     // а если мы встретим в дальнейшем таблицы, которые мы отслеживаем внутри этой транзакции,
                     // то мы вызовем this->on_transaction со временем первого ROW_EVENTа
                 }
-                if ( strcmp( "COMMIT", query_str ) == 0 ) {
+                if ( 
+                    /* ( strcmp( "COMMIT", query_str ) == 0 ) || */
+                    ( strcmp( "COMMIT", query_str ) == 0 ) ) {
 
                     // TRANSACTION!!!!
                     // > 1 потому, что мы, изначально встретив query BEGIN ставим в 1,
@@ -1740,7 +1744,7 @@ void mysql_rpl_listener_2::process_event (  void *ev_x, _repl_log_x_error *error
         }
         case binary_log::XID_EVENT: {
 
-            // по сути может представлять как Xid_event так и XA_prepare_event ,
+            // по сути может представлять как Xid_event так и XA_prepare_event , ( хз - может это и не так!!! )
             // но для нас не важно какого именно типа транзакция подтверждается.
             ;;
             Xid_log_event *xidle = (Xid_log_event *)ev;
@@ -1758,6 +1762,39 @@ void mysql_rpl_listener_2::process_event (  void *ev_x, _repl_log_x_error *error
 
                         _repl_log_x_transaction X_TR_EV;
                         X_TR_EV.when = xidle->common_header->when;
+                        X_TR_EV.transaction_event_type = (uint8_t)( TRANSACTION_EV_TYPE_COMMIT );
+                        
+                        this->on_transaction( &X_TR_EV, this->on_transaction_param_ptr );
+                    }
+                }
+            }
+            this->in_transaction = 0;
+
+            __sync_bool_compare_and_swap( &(this->state), 
+                                    (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS_1),
+                                    (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS ) );
+
+            break;
+        }
+        case binary_log::XA_PREPARE_LOG_EVENT: {
+
+            // XA_prepare_log_event 
+            ;;
+            XA_prepare_log_event *xaple = (XA_prepare_log_event *)ev;
+            // -- xaple->xid;
+
+            // TRANSACTION!!!!
+            // > 1 потому, что мы, изначально встретив query BEGIN ставим в 1,
+            // а потом, если внутри транзакции встречаем одну из отслеживаемых таблиц,.
+            // то ставим в 2
+            if ( this->in_transaction > 1 ) {
+
+                if ( __sync_fetch_and_add( &( this->state ), (uint32_t)0 ) == mysql_rpl_listener_2::__State::INPROCESS ) {
+                
+                    if ( this->on_transaction != NULL ) {
+
+                        _repl_log_x_transaction X_TR_EV;
+                        X_TR_EV.when = xaple->common_header->when;
                         X_TR_EV.transaction_event_type = (uint8_t)( TRANSACTION_EV_TYPE_COMMIT );
                         
                         this->on_transaction( &X_TR_EV, this->on_transaction_param_ptr );

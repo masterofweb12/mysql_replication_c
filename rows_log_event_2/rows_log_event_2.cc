@@ -767,7 +767,8 @@ switch (type) {
         memset( buf, 0, MAX_DATE_STRING_REP_LENGTH+1 );
         struct timeval tm;
         my_timestamp_from_binary(&tm, ptr, meta);
-        int buflen = my_timeval_to_str(&tm, buf, meta);
+
+        my_timeval_to_str(&tm, buf, meta);
         
         ROW_COL_PTR[0].val = (char*)malloc( strlen( buf ) + 1 );
         if ( ROW_COL_PTR[0].val == NULL ) {
@@ -823,7 +824,8 @@ switch (type) {
         MYSQL_TIME ltime;
         longlong packed = my_datetime_packed_from_binary(ptr, meta);
         TIME_from_longlong_datetime_packed(&ltime, packed);
-        int buflen = my_datetime_to_str(ltime, buf, meta);
+
+        my_datetime_to_str(ltime, buf, meta);
 
         ROW_COL_PTR[0].val = (char*)malloc( strlen( buf ) + 1 );
         if ( ROW_COL_PTR[0].val == NULL ) {
@@ -870,7 +872,8 @@ switch (type) {
         MYSQL_TIME ltime;
         longlong packed = my_time_packed_from_binary(ptr, meta);
         TIME_from_longlong_time_packed(&ltime, packed);
-        int buflen = my_time_to_str( ltime, buf, meta );
+
+        my_time_to_str( ltime, buf, meta );
 
         ROW_COL_PTR[0].val = (char*)malloc( strlen( buf ) + 1 );
         if ( ROW_COL_PTR[0].val == NULL ) {
