@@ -185,7 +185,7 @@ class mysql_rpl_listener_2 {
     *  функция обрабатывающая event
        по сути мы обрабатываем только ROWS_EVENTы различных видов
     */
-    void process_event (  void *ev_x, _repl_log_x_error *error_ptr );
+    void process_event ( mysql_rpl_listener_2 *OBJECT, void *ev_x, _repl_log_x_error *error_ptr );
 
     static void repl_log_x_rows_init( _repl_log_x_rows     *r_ptr, 
                                       mysql_rpl_listener_2 *obj,

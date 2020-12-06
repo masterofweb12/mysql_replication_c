@@ -1,6 +1,8 @@
 #!/bin/sh
 
 
+MYSQL_SOURCE_VERSION="mysql-8.0.22"
+
 rpl > /dev/null 2>&1;
 RPL_TEST_RES="$?"
 if [ "$RPL_TEST_RES" -eq "127"  ]; then
@@ -28,11 +30,37 @@ fi
 
 if [ -d $CURR_DIR/mysql_source/mysql ]; then
 
-echo "mysql_source/mysql present"
+
+    if [ -f $CURR_DIR/mysql_source/mysql/MYSQL_VERSION ]; then
+
+        FMSV=`cat $CURR_DIR/mysql_source/mysql/MYSQL_VERSION`
+
+        M_MAJOR=`echo $FMSV | awk -F " " '{ print $1 }' | awk -F "=" '{ print $2 }'`
+        M_MINOR=`echo $FMSV | awk -F " " '{ print $2 }' | awk -F "=" '{ print $2 }'`
+        M_PATCH=`echo $FMSV | awk -F " " '{ print $3 }' | awk -F "=" '{ print $2 }'`
+        M_EXTRA=`echo $FMSV | awk -F " " '{ print $4 }' | awk -F "=" '{ print $2 }'`
+
+        M_F_VER="mysql-$M_MAJOR.$M_MINOR.$M_PATCH"
+        ##echo $M_F_VER
+
+        if [ "x$M_F_VER" != "x$MYSQL_SOURCE_VERSION" ]; then
+
+              rm -r -f $CURR_DIR/mysql_source/mysql
+              git clone -v --branch "$MYSQL_SOURCE_VERSION" --depth 1 https://github.com/mysql/mysql-server.git mysql_source/mysql
+
+
+
+        fi
+
+    else
+
+         rm -r -f $CURR_DIR/mysql_source/mysql
+         git clone -v --branch "$MYSQL_SOURCE_VERSION" --depth 1 https://github.com/mysql/mysql-server.git mysql_source/mysql
+    fi
 
 else
 
-git clone -v --branch 'mysql-8.0.22' --depth 1 https://github.com/mysql/mysql-server.git mysql_source/mysql
+    git clone -v --branch "$MYSQL_SOURCE_VERSION" --depth 1 https://github.com/mysql/mysql-server.git mysql_source/mysql
 
 fi
 

@@ -21,7 +21,7 @@ For the library to work correctly, the following server variables must have the 
 
 On ubuntu you need install some pakages:
 
-    sudo apt install git gcc g++ make cmake rpl libssl-dev libncurses-dev pkg-config bison
+    sudo apt install git gcc g++ make cmake rpl libssl-dev libncurses-dev pkg-config bison 9base
     
 To build the library, you need to run the **build.sh** script included in the project.
 This script will run the **cmake** utility for the **MySQL 8.0** distribution and after that, by calling the **rpl** utility, 
