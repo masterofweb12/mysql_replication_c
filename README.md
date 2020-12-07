@@ -2,6 +2,7 @@
 The **mysql_replication_c** library is MySQL replication listener based on **MySQL 8.0** code.
 Source code of **MySQL 8.0** is included in the code of this project as is
 and cloned by git in **mysql_source/mysql/** directory.
+**mysql_replication_c** library supports all features of MySQL 8.0 including  **Binary Log Transaction Compression** and **transaction payload events**.
 
 
 # MySQL server variables
