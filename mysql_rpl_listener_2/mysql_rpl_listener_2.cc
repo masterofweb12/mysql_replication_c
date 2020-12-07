@@ -1232,33 +1232,6 @@ void *mysql_rpl_listener_2::process_replication_thread_fnc ( void *arg_ptr ) {
             break;
         }
         ev->register_temp_buf( event_buf, true );
-
-
-        //-----------
-
-        /*
-        if ( type == binary_log::TRANSACTION_PAYLOAD_EVENT ) {
-
-            if ( OBJECT->glob_description_event != NULL ) {
-
-
-
-                if ( need_break == 1 ) {
-
-                    break;
-                }
-  
-
-            } else {
-
-                repl_log_error_set( error_ptr, 0, __LINE__, "TRANSACTION_PAYLOAD_EVENT without FORMAT_DESCRIPTION_EVENT!!!" );
-                break;
-            }
-
-        }
-        */
-
-        //-----------
         
 
         // обрабатываем EVENT 
@@ -1330,7 +1303,12 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
             (  ev_type == binary_log::UPDATE_ROWS_EVENT_V1 ) ||
             (  ev_type == binary_log::PARTIAL_UPDATE_ROWS_EVENT ) ||
             (  ev_type == binary_log::QUERY_EVENT ) ||
-            (  ev_type == binary_log::XID_EVENT )
+            (  ev_type == binary_log::XID_EVENT ) ||
+            (  ev_type == binary_log::XA_PREPARE_LOG_EVENT ) ||
+            (  ev_type == binary_log::TRANSACTION_PAYLOAD_EVENT ) ||
+            (  ev_type == binary_log::FORMAT_DESCRIPTION_EVENT ) ||
+            (  ev_type == binary_log::TABLE_MAP_EVENT ) ||
+            (  ev_type == binary_log::ROTATE_EVENT )
         ) ) {
             
         
@@ -1353,12 +1331,12 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
         // приравняем к HEARTBEAT
         case binary_log::QUERY_EVENT: {
             
-            uint8_t convert_to_heartbeat = 1;
-
-            Query_log_event *qle = (Query_log_event *)ev;
-                
+            uint8_t convert_to_heartbeat = 1;    
             char *query_str = NULL;
+
             try {
+
+                Query_log_event *qle = (Query_log_event *)ev;
                     
                 // проверим не является ли это началом транзакции ( BEGIN )
                 // или окончанием тразакции ( COMMIT )
@@ -1440,8 +1418,8 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
                 delete ev;
                 return;
             }
-            if ( query_str != NULL ) { free( query_str ); }
 
+            if ( query_str != NULL ) { free( query_str ); }
             break;
         }
 
@@ -1467,24 +1445,39 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
 
         case binary_log::FORMAT_DESCRIPTION_EVENT: {
 
-            if ( OBJECT->glob_description_event != NULL ) {
-            
-                delete ( Format_description_event* )( OBJECT->glob_description_event );
-                OBJECT->glob_description_event = NULL;
-            }
-            OBJECT->glob_description_event = dynamic_cast<Format_description_event*>(ev);
+            try {
 
-            /*
-                This could be an fake Format_description_log_event that server
-                (5.0+) automatically sends to a slave on connect, before sending
-                a first event at the requested position.  If this is the case,
-                don't increment old_off. Real Format_description_log_event always
-                starts from BIN_LOG_HEADER_SIZE position.
-            */
-            if ( OBJECT->MY_RPL_H.start_position != BIN_LOG_HEADER_SIZE ) {
-            
-                OBJECT->MY_RPL_H.size  = 1;
-                // event_len = 0;
+                if ( OBJECT->glob_description_event != NULL ) {
+                
+                    delete ( Format_description_event* )( OBJECT->glob_description_event );
+                    OBJECT->glob_description_event = NULL;
+                }
+                OBJECT->glob_description_event = dynamic_cast<Format_description_event*>(ev);
+
+                /*
+                    This could be an fake Format_description_log_event that server
+                    (5.0+) automatically sends to a slave on connect, before sending
+                    a first event at the requested position.  If this is the case,
+                    don't increment old_off. Real Format_description_log_event always
+                    starts from BIN_LOG_HEADER_SIZE position.
+                */
+                if ( OBJECT->MY_RPL_H.start_position != BIN_LOG_HEADER_SIZE ) {
+                
+                    OBJECT->MY_RPL_H.size  = 1;
+                    // event_len = 0;
+                }
+            }
+            catch ( std::exception& e ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
+                delete ev;
+                return;
+            }
+            catch ( ... ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
+                delete ev;
+                return;
             }
 
             // для предотвращения удаления eventа делаем return
@@ -1506,22 +1499,37 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
 
         case binary_log::TABLE_MAP_EVENT: {
 
-            Table_map_log_event   *tmp_ev = (Table_map_log_event*)(ev);
+            try {
 
-            uint64_t tmp_key;
-            tmp_key = tmp_ev->get_table_id().id();
+                Table_map_log_event   *tmp_ev = (Table_map_log_event*)(ev);
 
-            std::map<uint64_t,void*>::iterator it;
-            it = OBJECT->glob_table_map_events.find( tmp_key );
-            if ( it != OBJECT->glob_table_map_events.end() ) {
+                uint64_t tmp_key;
+                tmp_key = tmp_ev->get_table_id().id();
 
-                if ( (*it).second != NULL ) {
-                
-                    delete ( Table_map_log_event* )( (*it).second );
+                std::map<uint64_t,void*>::iterator it;
+                it = OBJECT->glob_table_map_events.find( tmp_key );
+                if ( it != OBJECT->glob_table_map_events.end() ) {
+
+                    if ( (*it).second != NULL ) {
+                    
+                        delete ( Table_map_log_event* )( (*it).second );
+                    }
+                    OBJECT->glob_table_map_events.erase(it);                
                 }
-                OBJECT->glob_table_map_events.erase(it);                
+                OBJECT->glob_table_map_events.insert( std::pair<uint64_t,void*>( tmp_key, (void*)tmp_ev ) );
             }
-            OBJECT->glob_table_map_events.insert( std::pair<uint64_t,void*>( tmp_key, (void*)tmp_ev ) );
+            catch ( std::exception& e ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
+                delete ev;
+                return;
+            }
+            catch ( ... ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
+                delete ev;
+                return;
+            }
 
             // для предотвращения удаления eventа делаем return
             // TABLE_MAP_EVENT нам нужен для дальнейших ROW eventов 
@@ -1530,29 +1538,44 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
         }
         case binary_log::ROTATE_EVENT: {
 
-            Rotate_log_event *rev =  (Rotate_log_event *)ev;
-                
-            // если это настоящий ROTATE_EVENT, то 
-            // имя файла будет отличным от текущего
-            // в противном же случае это фейковый ROTATE_EVENT и нам нужно ничего не делать
+            try {
 
-            if ( (rev->ident_len != OBJECT->MY_RPL_H.file_name_length) ||
-                    memcmp( rev->new_log_ident, OBJECT->MY_RPL_H.file_name, OBJECT->MY_RPL_H.file_name_length ) ) {
+                Rotate_log_event *rev =  (Rotate_log_event *)ev;
+                    
+                // если это настоящий ROTATE_EVENT, то 
+                // имя файла будет отличным от текущего
+                // в противном же случае это фейковый ROTATE_EVENT и нам нужно ничего не делать
 
-                memset( OBJECT->m_log_nm, 0, 512 );
-                snprintf( OBJECT->m_log_nm, ( ( rev->ident_len + 1 ) > 512 ) ? 512 : ( rev->ident_len + 1 ) , "%s", rev->new_log_ident );
-                OBJECT->MY_RPL_H.file_name_length = strlen( OBJECT->MY_RPL_H.file_name );
-                OBJECT->MY_RPL_H.start_position = 0;
+                if ( (rev->ident_len != OBJECT->MY_RPL_H.file_name_length) ||
+                        memcmp( rev->new_log_ident, OBJECT->MY_RPL_H.file_name, OBJECT->MY_RPL_H.file_name_length ) ) {
 
-                OBJECT->MY_RPL_H.size  = 5;
-                // event_len = 0; 
+                    memset( OBJECT->m_log_nm, 0, 512 );
+                    snprintf( OBJECT->m_log_nm, ( ( rev->ident_len + 1 ) > 512 ) ? 512 : ( rev->ident_len + 1 ) , "%s", rev->new_log_ident );
+                    OBJECT->MY_RPL_H.file_name_length = strlen( OBJECT->MY_RPL_H.file_name );
+                    OBJECT->MY_RPL_H.start_position = 0;
 
-            } else {
+                    OBJECT->MY_RPL_H.size  = 5;
+                    // event_len = 0; 
 
-                OBJECT->MY_RPL_H.size  = 1;
-                // event_len = 0;
+                } else {
+
+                    OBJECT->MY_RPL_H.size  = 1;
+                    // event_len = 0;
+                }
             }
-            ;;
+            catch ( std::exception& e ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
+                delete ev;
+                return;
+            }
+            catch ( ... ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
+                delete ev;
+                return;
+            }
+
             break;
         }
         case binary_log::ROWS_QUERY_LOG_EVENT: {
@@ -1771,66 +1794,94 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
 
             // по сути может представлять как Xid_event так и XA_prepare_event , ( хз - может это и не так!!! )
             // но для нас не важно какого именно типа транзакция подтверждается.
-            ;;
-            Xid_log_event *xidle = (Xid_log_event *)ev;
-            // -- xidle->xid;
+            
+            try {
 
-            // TRANSACTION!!!!
-            // > 1 потому, что мы, изначально встретив query BEGIN ставим в 1,
-            // а потом, если внутри транзакции встречаем одну из отслеживаемых таблиц,.
-            // то ставим в 2
-            if ( this->in_transaction > 1 ) {
+                Xid_log_event *xidle = (Xid_log_event *)ev;
 
-                if ( __sync_fetch_and_add( &( this->state ), (uint32_t)0 ) == mysql_rpl_listener_2::__State::INPROCESS ) {
-                
-                    if ( this->on_transaction != NULL ) {
+                // TRANSACTION!!!!
+                // > 1 потому, что мы, изначально встретив query BEGIN ставим в 1,
+                // а потом, если внутри транзакции встречаем одну из отслеживаемых таблиц,.
+                // то ставим в 2
+                if ( this->in_transaction > 1 ) {
 
-                        _repl_log_x_transaction X_TR_EV;
-                        X_TR_EV.when = xidle->common_header->when;
-                        X_TR_EV.transaction_event_type = (uint8_t)( TRANSACTION_EV_TYPE_COMMIT );
-                        
-                        this->on_transaction( &X_TR_EV, this->on_transaction_param_ptr );
+                    if ( __sync_fetch_and_add( &( this->state ), (uint32_t)0 ) == mysql_rpl_listener_2::__State::INPROCESS ) {
+                    
+                        if ( this->on_transaction != NULL ) {
+
+                            _repl_log_x_transaction X_TR_EV;
+                            X_TR_EV.when = xidle->common_header->when;
+                            X_TR_EV.transaction_event_type = (uint8_t)( TRANSACTION_EV_TYPE_COMMIT );
+                            
+                            this->on_transaction( &X_TR_EV, this->on_transaction_param_ptr );
+                        }
                     }
                 }
-            }
-            this->in_transaction = 0;
+                this->in_transaction = 0;
 
-            __sync_bool_compare_and_swap( &(this->state), 
-                                    (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS_1),
-                                    (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS ) );
+                __sync_bool_compare_and_swap( &(this->state), 
+                                        (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS_1),
+                                        (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS ) );
+            }                        
+            catch ( std::exception& e ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
+                delete ev;
+                return;
+            }
+            catch ( ... ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
+                delete ev;
+                return;
+            }
 
             break;
         }
         case binary_log::XA_PREPARE_LOG_EVENT: {
 
             // XA_prepare_log_event 
-            ;;
-            XA_prepare_log_event *xaple = (XA_prepare_log_event *)ev;
-            // -- xaple->xid;
+            
+            try {
 
-            // TRANSACTION!!!!
-            // > 1 потому, что мы, изначально встретив query BEGIN ставим в 1,
-            // а потом, если внутри транзакции встречаем одну из отслеживаемых таблиц,.
-            // то ставим в 2
-            if ( this->in_transaction > 1 ) {
+                XA_prepare_log_event *xaple = (XA_prepare_log_event *)ev;
 
-                if ( __sync_fetch_and_add( &( this->state ), (uint32_t)0 ) == mysql_rpl_listener_2::__State::INPROCESS ) {
-                
-                    if ( this->on_transaction != NULL ) {
+                // TRANSACTION!!!!
+                // > 1 потому, что мы, изначально встретив query BEGIN ставим в 1,
+                // а потом, если внутри транзакции встречаем одну из отслеживаемых таблиц,.
+                // то ставим в 2
+                if ( this->in_transaction > 1 ) {
 
-                        _repl_log_x_transaction X_TR_EV;
-                        X_TR_EV.when = xaple->common_header->when;
-                        X_TR_EV.transaction_event_type = (uint8_t)( TRANSACTION_EV_TYPE_COMMIT );
-                        
-                        this->on_transaction( &X_TR_EV, this->on_transaction_param_ptr );
+                    if ( __sync_fetch_and_add( &( this->state ), (uint32_t)0 ) == mysql_rpl_listener_2::__State::INPROCESS ) {
+                    
+                        if ( this->on_transaction != NULL ) {
+
+                            _repl_log_x_transaction X_TR_EV;
+                            X_TR_EV.when = xaple->common_header->when;
+                            X_TR_EV.transaction_event_type = (uint8_t)( TRANSACTION_EV_TYPE_COMMIT );
+                            
+                            this->on_transaction( &X_TR_EV, this->on_transaction_param_ptr );
+                        }
                     }
                 }
-            }
-            this->in_transaction = 0;
+                this->in_transaction = 0;
 
-            __sync_bool_compare_and_swap( &(this->state), 
-                                    (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS_1),
-                                    (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS ) );
+                __sync_bool_compare_and_swap( &(this->state), 
+                                        (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS_1),
+                                        (uint32_t)(mysql_rpl_listener_2::__State::INPROCESS ) );
+            }
+            catch ( std::exception& e ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
+                delete ev;
+                return;
+            }
+            catch ( ... ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
+                delete ev;
+                return;
+            }
 
             break;
         }
@@ -1848,105 +1899,120 @@ void mysql_rpl_listener_2::process_event ( mysql_rpl_listener_2 *OBJECT, void *e
             // это ивент в котором заархивированны другие ивенты
             // ---
 
-            binary_log::Transaction_payload_event *tpev = dynamic_cast<binary_log::Transaction_payload_event*>(ev);
+            try {
 
-            bool has_crc = ( 
-                ( ( Format_description_event* )( OBJECT->glob_description_event ) )[0].footer()->checksum_alg ==
-                                binary_log::BINLOG_CHECKSUM_ALG_CRC32 
-            );   
+                binary_log::Transaction_payload_event *tpev = dynamic_cast<binary_log::Transaction_payload_event*>(ev);
 
-            binary_log::transaction::compression::Iterable_buffer it(
-                                                        tpev->get_payload(), 
-                                                        tpev->get_payload_size(), 
-                                                        tpev->get_uncompressed_size(), 
-                                                        tpev->get_compression_type() );
+                bool has_crc = ( 
+                    ( ( Format_description_event* )( OBJECT->glob_description_event ) )[0].footer()->checksum_alg ==
+                                    binary_log::BINLOG_CHECKSUM_ALG_CRC32 
+                );   
 
-            for ( auto ptr : it ) {
-                
-                Log_event *tpev_ev = NULL;
+                binary_log::transaction::compression::Iterable_buffer it(
+                                                            tpev->get_payload(), 
+                                                            tpev->get_payload_size(), 
+                                                            tpev->get_uncompressed_size(), 
+                                                            tpev->get_compression_type() );
 
-                // fix the checksum part
-                size_t tpev_event_len = uint4korr(ptr + EVENT_LEN_OFFSET);
-
-                unsigned char *tpevs_tmp_buffer;
-                size_t tpevs_tmp_buffer_size = ( round(((tpev_event_len + BINLOG_CHECKSUM_LEN) / 1024.0) + 1) * 1024 ) + 16;
-
-                tpevs_tmp_buffer = (unsigned char *)my_malloc( PSI_NOT_INSTRUMENTED, tpevs_tmp_buffer_size, MYF(0) );
-                if ( !tpevs_tmp_buffer ) {
+                for ( auto ptr : it ) {
                     
-                    repl_log_error_set( error_ptr, 0, __LINE__, "out of mem when allocate tpevs_tmp_buffer" );
-                    break;
+                    Log_event *tpev_ev = NULL;
+
+                    // fix the checksum part
+                    size_t tpev_event_len = uint4korr(ptr + EVENT_LEN_OFFSET);
+
+                    unsigned char *tpevs_tmp_buffer;
+                    size_t tpevs_tmp_buffer_size = ( round(((tpev_event_len + BINLOG_CHECKSUM_LEN) / 1024.0) + 1) * 1024 ) + 16;
+
+                    tpevs_tmp_buffer = (unsigned char *)my_malloc( PSI_NOT_INSTRUMENTED, tpevs_tmp_buffer_size, MYF(0) );
+                    if ( !tpevs_tmp_buffer ) {
+                        
+                        repl_log_error_set( error_ptr, 0, __LINE__, "out of mem when allocate tpevs_tmp_buffer" );
+                        break;
+                    }
+
+                    memcpy( tpevs_tmp_buffer, ptr, tpev_event_len );
+
+
+                    // update the CRC
+                    if ( has_crc ) {
+
+                        int4store(tpevs_tmp_buffer + EVENT_LEN_OFFSET, tpev_event_len + BINLOG_CHECKSUM_LEN);
+                        int4store(tpevs_tmp_buffer + tpev_event_len, checksum_crc32(0, tpevs_tmp_buffer, tpev_event_len));
+                        tpev_event_len += BINLOG_CHECKSUM_LEN;
+                    }
+
+                    // now deserialize the event
+                    Binlog_read_error tpevs_read_error;
+                    try {
+
+                        tpevs_read_error = binlog_event_deserialize( (const unsigned char *)tpevs_tmp_buffer,
+                                                    tpev_event_len,
+                                                    ( ( Format_description_event* )( OBJECT->glob_description_event ) ), 
+                                                    true, 
+                                                    &tpev_ev);
+
+                    }
+                    catch ( std::exception& e ) {
+
+                        repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
+                        my_free( tpevs_tmp_buffer );
+                        break;
+                    }
+                    catch ( ... ) {
+
+                        repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
+                        my_free( tpevs_tmp_buffer );
+                        break;
+                    }                                     
+                    if ( tpevs_read_error.has_error() ) {
+                        
+                        repl_log_error_set( error_ptr, 0, __LINE__, tpevs_read_error.get_str() );
+                        my_free( tpevs_tmp_buffer );
+                        break;
+                    }
+
+
+                    tpev_ev->register_temp_buf( (char *)tpevs_tmp_buffer, true );
+                    tpev_ev->common_header->log_pos = tpev->header()->log_pos;
+
+                    // TODO: make this iterative, not recursive (process_event may rely
+                    // on global vars, and this may cause problems).
+                    // обрабатываем EVENT 
+                    OBJECT->process_event( OBJECT, tpev_ev, error_ptr );
+
+
+                    // The event's deletion has been handled in process_event. To prevent
+                    // that Destroy_log_event_guard deletes it again, we have to set it to
+                    // NULL
+                    tpev_ev = NULL;
+
+                    if ( error_ptr[0].is_error != 0 ) {
+
+                        break;
+                    }
+
+                    if ( OBJECT->need_stop == true ) {
+
+                        break;
+                    }  
+
                 }
-
-                memcpy( tpevs_tmp_buffer, ptr, tpev_event_len );
-
-
-                // update the CRC
-                if ( has_crc ) {
-
-                    int4store(tpevs_tmp_buffer + EVENT_LEN_OFFSET, tpev_event_len + BINLOG_CHECKSUM_LEN);
-                    int4store(tpevs_tmp_buffer + tpev_event_len, checksum_crc32(0, tpevs_tmp_buffer, tpev_event_len));
-                    tpev_event_len += BINLOG_CHECKSUM_LEN;
-                }
-
-                // now deserialize the event
-                Binlog_read_error tpevs_read_error;
-                try {
-
-                    tpevs_read_error = binlog_event_deserialize( (const unsigned char *)tpevs_tmp_buffer,
-                                                tpev_event_len,
-                                                ( ( Format_description_event* )( OBJECT->glob_description_event ) ), 
-                                                true, 
-                                                &tpev_ev);
-
-                }
-                catch ( std::exception& e ) {
-
-                    repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
-                    my_free( tpevs_tmp_buffer );
-                    break;
-                }
-                catch ( ... ) {
-
-                    repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
-                    my_free( tpevs_tmp_buffer );
-                    break;
-                }                                     
-                if ( tpevs_read_error.has_error() ) {
-                    
-                    repl_log_error_set( error_ptr, 0, __LINE__, tpevs_read_error.get_str() );
-                    my_free( tpevs_tmp_buffer );
-                    break;
-                }
-
-
-                tpev_ev->register_temp_buf( (char *)tpevs_tmp_buffer, true );
-                tpev_ev->common_header->log_pos = tpev->header()->log_pos;
-
-                // TODO: make this iterative, not recursive (process_event may rely
-                // on global vars, and this may cause problems).
-                // обрабатываем EVENT 
-                OBJECT->process_event( OBJECT, tpev_ev, error_ptr );
-
-
-                // The event's deletion has been handled in process_event. To prevent
-                // that Destroy_log_event_guard deletes it again, we have to set it to
-                // NULL
-                tpev_ev = NULL;
-
-                if ( error_ptr[0].is_error != 0 ) {
-
-                    break;
-                }
-
-                if ( OBJECT->need_stop == true ) {
-
-                    break;
-                }  
-
-            }
 
             //-------------------------------
+            }
+            catch ( std::exception& e ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, e.what() );
+                delete ev;
+                return;
+            }
+            catch ( ... ) {
+
+                repl_log_error_set( error_ptr, 0, __LINE__, "exception catched!!!" );
+                delete ev;
+                return;
+            }
 
             break;  
         }
