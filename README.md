@@ -36,7 +36,9 @@ the full power of **MySQL 8.0** replication in **C** or **C++**.
 
 
 As an example, you can use the **example/C/rpl_test_2.c** file from the source code of the library project.
+Change DB_HOST, DB_USER, DB_PASS, DB_PORT, DB_NAME and SLAVE_ID constants to your actual values.
 You need to run **example/C/build_test.sh** script to build example programm.
+
 
 On ubuntu to build example you need install libmysqlclient-dev:
 
