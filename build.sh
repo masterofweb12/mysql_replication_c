@@ -83,6 +83,24 @@ else
 
 fi
 
+if [ -f $CURR_DIR/mysql_source/boost_1_73_0.tar.gz ]; then
+
+    rm $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
+fi
+cat $CURR_DIR/boost/xaa >  $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
+cat $CURR_DIR/boost/xab >> $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
+cat $CURR_DIR/boost/xac >> $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
+cat $CURR_DIR/boost/xad >> $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
+
+if [ -d $CURR_DIR/mysql_source/mysql/boost_1_73_0 ]; then
+
+    rm -r -f $CURR_DIR/mysql_source/mysql/boost_1_73_0
+fi
+mkdir $CURR_DIR/mysql_source/mysql/boost_1_73_0
+
+tar -C $CURR_DIR/mysql_source/mysql/boost_1_73_0 -zxvf $CURR_DIR/mysql_source/boost_1_73_0.tar.gz --strip-components 1
+
+
 
 rm -r ./mysql_source/build/*
 echo "" > ./mysql_source/build/1.txt
@@ -90,7 +108,7 @@ echo "" > ./mysql_source/build/1.txt
 
 
 cd    ./mysql_source/build
-cmake ../mysql -DDOWNLOAD_BOOST=1 -DWITH_BOOST=../mysql  -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+cmake ../mysql -DDOWNLOAD_BOOST=0 -DWITH_BOOST=../mysql/boost_1_73_0  -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 cd ../../
 
 
