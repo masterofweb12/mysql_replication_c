@@ -20,7 +20,7 @@
 #
 
 
-MYSQL_SOURCE_VERSION="mysql-8.0.22"
+MYSQL_SOURCE_VERSION="mysql-8.0.25"
 
 rpl > /dev/null 2>&1;
 RPL_TEST_RES="$?"
@@ -83,6 +83,8 @@ else
 
 fi
 
+
+
 if [ -f $CURR_DIR/mysql_source/boost_1_73_0.tar.gz ]; then
 
     rm $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
@@ -108,7 +110,7 @@ echo "" > ./mysql_source/build/1.txt
 
 
 cd    ./mysql_source/build
-cmake ../mysql -DDOWNLOAD_BOOST=0 -DWITH_BOOST=../mysql/boost_1_73_0  -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+cmake ../mysql -DDOWNLOAD_BOOST=0 -DWITH_BOOST=$CURR_DIR/mysql_source/mysql/boost_1_73_0  -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 cd ../../
 
 
@@ -186,9 +188,9 @@ make mysqlbinlog
 -shared \
 $CURR_DIR/mysql_rpl_listener.cc.o \
 $CURR_DIR/mysql_rpl_listener_2/mysql_rpl_listener_2.cc.o \
-CMakeFiles/mysqlbinlog.dir/__/sql/json_binary.cc.o \
-CMakeFiles/mysqlbinlog.dir/__/sql/json_dom.cc.o \
-CMakeFiles/mysqlbinlog.dir/__/sql/json_syntax_check.cc.o \
+CMakeFiles/json_client_library_objlib.dir/__/sql/json_binary.cc.o \
+CMakeFiles/json_client_library_objlib.dir/__/sql/json_dom.cc.o \
+CMakeFiles/json_client_library_objlib.dir/__/sql/json_syntax_check.cc.o \
 CMakeFiles/mysqlbinlog.dir/__/sql/log_event.cc.o \
 CMakeFiles/mysqlbinlog.dir/__/sql/rpl_utility.cc.o \
 CMakeFiles/mysqlbinlog.dir/__/sql/rpl_gtid_sid_map.cc.o \
@@ -213,8 +215,6 @@ CMakeFiles/mysqlbinlog.dir/__/libbinlogevents/src/trx_boundary_parser.cpp.o  \
 ../archive_output_directory/libstrings.a \
 ../archive_output_directory/libz.a \
 ../archive_output_directory/libzstd.a -lpthread
-
-
 
 
 cd ../../../
