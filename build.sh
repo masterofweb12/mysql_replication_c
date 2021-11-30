@@ -20,7 +20,7 @@
 #
 
 
-MYSQL_SOURCE_VERSION="mysql-8.0.25"
+MYSQL_SOURCE_VERSION="mysql-8.0.27"
 
 rpl > /dev/null 2>&1;
 RPL_TEST_RES="$?"
@@ -143,7 +143,7 @@ make mysqlbinlog
 -I$CURR_DIR/mysql_source/mysql/include \
 -I$CURR_DIR/mysql_source/mysql/sql \
 -fPIC \
- -std=c++14 -fno-omit-frame-pointer  -Wall -Wextra -Wformat-security -Wvla -Wundef \
+ -std=c++17 -fno-omit-frame-pointer  -Wall -Wextra -Wformat-security -Wvla -Wundef \
 -Wmissing-format-attribute -Woverloaded-virtual -Wcast-qual -Wlogical-op \
 -DDBUG_OFF -ffunction-sections -fdata-sections -O0 -g -DNDEBUG \
 -Wno-unused-parameter \
@@ -170,7 +170,7 @@ make mysqlbinlog
 -I$CURR_DIR/mysql_source/mysql/include \
 -I$CURR_DIR/mysql_source/mysql/sql \
 -fPIC \
--std=c++14 -fno-omit-frame-pointer  -Wall -Wextra -Wformat-security -Wvla -Wundef \
+-std=c++17 -fno-omit-frame-pointer  -Wall -Wextra -Wformat-security -Wvla -Wundef \
 -Wmissing-format-attribute -Woverloaded-virtual -Wcast-qual -Wlogical-op \
 -DDBUG_OFF -ffunction-sections -fdata-sections -O0 -g -DNDEBUG \
 -Wno-unused-parameter \
@@ -180,7 +180,7 @@ make mysqlbinlog
 
 
 
-/usr/bin/c++  -std=c++14 -fno-omit-frame-pointer  -Wall -Wextra -Wformat-security -Wvla -Wundef -Wmissing-format-attribute -Woverloaded-virtual \
+/usr/bin/c++  -std=c++17 -fno-omit-frame-pointer  -Wall -Wextra -Wformat-security -Wvla -Wundef -Wmissing-format-attribute -Woverloaded-virtual \
 -Wcast-qual  -Wlogical-op -DDBUG_OFF -ffunction-sections -fdata-sections \
 -O2 -g -DNDEBUG  -fuse-ld=gold -Wl,--gc-sections \
 -Wl,--version-script=$CURR_DIR/libcode.version \
