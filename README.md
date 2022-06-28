@@ -46,7 +46,7 @@ On ubuntu to build example you need install libmysqlclient-dev:
 
 
 
-Building and using this library has been tested on **ubuntu 18.04** and **ubuntu 20.04**.
+Building and using this library has been tested on **ubuntu 18.04**, **ubuntu 20.04** and **ubuntu 22.04**.
 
 
 
