@@ -20,7 +20,7 @@ For the library to work correctly, the following server variables must have the 
 
 # build
 
-On ubuntu you need install some pakages:
+On ubuntu you need install some pakages: 
 
     sudo apt install git gcc g++ make cmake rpl libssl-dev libncurses-dev pkg-config bison 9base patchelf liblz4-dev
     
