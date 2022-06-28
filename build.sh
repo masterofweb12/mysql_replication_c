@@ -20,7 +20,7 @@
 #
 
 
-MYSQL_SOURCE_VERSION="mysql-8.0.27"
+MYSQL_SOURCE_VERSION="mysql-8.0.29"
 
 rpl > /dev/null 2>&1;
 RPL_TEST_RES="$?"
@@ -84,34 +84,24 @@ else
 fi
 
 
+cd $CURR_DIR/openssl_src
+tar -zxvf openssl-1.1.1p.tar.gz
+cd $CURR_DIR/openssl_src/openssl-1.1.1p
+./config --prefix=$CURR_DIR/openssl --openssldir=$CURR_DIR/openssl/ssl
+make
+make install
 
-
-if [ -f $CURR_DIR/mysql_source/boost_1_73_0.tar.gz ]; then
-
-    rm $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
-fi
-cat $CURR_DIR/boost/xaa >  $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
-cat $CURR_DIR/boost/xab >> $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
-cat $CURR_DIR/boost/xac >> $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
-cat $CURR_DIR/boost/xad >> $CURR_DIR/mysql_source/boost_1_73_0.tar.gz
-
-if [ -d $CURR_DIR/mysql_source/mysql/boost_1_73_0 ]; then
-
-    rm -r -f $CURR_DIR/mysql_source/mysql/boost_1_73_0
-fi
-mkdir $CURR_DIR/mysql_source/mysql/boost_1_73_0
-
-tar -C $CURR_DIR/mysql_source/mysql/boost_1_73_0 -zxvf $CURR_DIR/mysql_source/boost_1_73_0.tar.gz --strip-components 1
+cd $CURR_DIR
 
 
 
 rm -r ./mysql_source/build/*
-echo "" > ./mysql_source/build/1.txt
+echo "" > ./mysql_source/build/.gitkeep
 
 
 
 cd    ./mysql_source/build
-cmake ../mysql -DDOWNLOAD_BOOST=0 -DWITH_BOOST=$CURR_DIR/mysql_source/mysql/boost_1_73_0  -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+cmake ../mysql -DDOWNLOAD_BOOST=1 -DWITH_BOOST=$CURR_DIR/mysql_source/mysql/boost  -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DWITH_SSL=$CURR_DIR/openssl
 cd ../../
 
 

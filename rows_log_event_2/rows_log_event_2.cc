@@ -765,7 +765,7 @@ switch (type) {
         }
         char buf[MAX_DATE_STRING_REP_LENGTH+1];
         memset( buf, 0, MAX_DATE_STRING_REP_LENGTH+1 );
-        struct timeval tm;
+        struct my_timeval tm;
         my_timestamp_from_binary(&tm, ptr, meta);
 
         my_timeval_to_str(&tm, buf, meta);
