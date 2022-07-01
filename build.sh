@@ -200,8 +200,8 @@ CMakeFiles/mysqlbinlog.dir/__/libbinlogevents/src/trx_boundary_parser.cpp.o  \
 ../libbinlogevents/lib/libbinlogevents.a \
 ../archive_output_directory/libmysqlclient.a \
 ../archive_output_directory/libmysys.a -lm -lrt \
-/usr/lib/x86_64-linux-gnu/libssl.so \
-/usr/lib/x86_64-linux-gnu/libcrypto.so -ldl \
+$CURR_DIR/openssl/lib/libssl.a \
+$CURR_DIR/openssl/lib/libcrypto.a \
 ../archive_output_directory/libmytime.a \
 ../archive_output_directory/libstrings.a \
 ../archive_output_directory/libz.a \
